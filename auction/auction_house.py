@@ -198,7 +198,7 @@ class AuctionHouse:
             else:
                 self.auctions[tx_hash] = Auction(tx, bid)
 
-    async def get_results(self, pubkey: HexBytes, slot: int) -> dict:
+    async def get_results(self, pubkey: HexBytes, slot: int) -> list[dict]:
         builder = self._get_builder_by_pubkey(pubkey)
         if not builder.access:
             raise ValueError("Access restricted.")
@@ -207,15 +207,15 @@ class AuctionHouse:
             raise ValueError(f"No results for slot {slot}")
 
         total_payment = 0
-        txs: dict = {}
+        txs: list = []
         for res, tx_data in self.results[slot]:
             if res.winner_pubkey != pubkey:
                 continue
             total_payment += res.payment
-            txs[res.tx_hash] = {
+            txs.append({
                 "payment": res.payment,
                 "data": tx_data,
-            }
+            })
         return {"transactions": txs, "total_payment": total_payment}
 
     # ========= #
