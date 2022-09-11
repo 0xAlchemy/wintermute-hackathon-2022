@@ -98,9 +98,10 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         data = await request.get_json()
         assert("pubKey" in data and "slot" in data)
-        pubKey = HexBytes(data["pubKey"], int(data["slot"]))
+        pubKey = HexBytes(data["pubKey"])
+        slot = int(data["slot"])
 
-        res = await ah.get_results(pubKey)
+        res = await ah.get_results(pubKey, slot)
 
         return res
 
