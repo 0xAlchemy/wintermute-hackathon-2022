@@ -199,6 +199,6 @@ Long-term:
 
 ## Acknowledgements
 
-All this work is made possible by Army Forces of Ukraine, who're now fighting for our lives and freedom. If you find anything of presented above as prospective and think we should continue doing this, consider donating to one of the following funds
+All this work is made possible by Armed Forces of Ukraine, who're now fighting for our lives and freedom. If you find anything of presented above as prospective and think we should continue doing this, consider donating to one of the following funds
 * [Come Back Alive](https://savelife.in.ua/en/donate-en/)
 * [Serhiy Prytula Charity Foundation](https://prytulafoundation.org/en/home/support_page)
