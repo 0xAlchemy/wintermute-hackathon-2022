@@ -18,13 +18,13 @@ def encode_tx_data(tx_data: TxData) -> HexBytes:
     """Encode transaction dict from the mempool, return the raw transaction."""
     v, r, s = (
         tx_data["v"],
-        int(tx_data["r"].hex(), base=16),
-        int(tx_data["s"].hex(), base=16),
+        int(HexBytes(tx_data["r"]).hex(), base=16),
+        int(HexBytes(tx_data["s"]).hex(), base=16),
     )
 
     tx_dict = {
         "nonce": tx_data["nonce"],
-        "data": HexBytes(tx_data["input"]),
+        "data": HexBytes(tx_data["data"]),
         "value": tx_data["value"],
         "gas": tx_data["gas"],
     }
@@ -50,7 +50,6 @@ def encode_tx_data(tx_data: TxData) -> HexBytes:
 
     unsigned_tx = serializable_unsigned_transaction_from_dict(tx_dict)
     raw_tx = encode_transaction(unsigned_tx, vrs=(v, r, s))
-    assert Web3.keccak(raw_tx) == tx_data["hash"]
     return HexBytes(raw_tx)
 
 
@@ -73,7 +72,16 @@ def decode_raw_tx(raw_tx: HexBytes) -> TxData:
             raise ValueError(f"Unknown transaction type: {tx_type}.")
         tx_data = rlp.decode(raw_tx[1:], sedes).as_dict()
 
-    # recover sender address and remove signature fields
-    tx_data["from"] = Account.recover_transaction(raw_tx)
-    tx_data["data"] = HexBytes(tx_data["data"])
+    # recover sender address, do some post-processing
+    tx_data["from"] = Web3.toChecksumAddress(Account.recover_transaction(raw_tx))
+    tx_data["to"] = Web3.toChecksumAddress(tx_data["to"])
+    tx_data["data"] = Web3.toHex(tx_data["data"])
+    tx_data["hash"] = Web3.keccak(raw_tx)
+    tx_data["r"] = Web3.toHex(tx_data["r"])
+    tx_data["s"] = Web3.toHex(tx_data["s"])
+
+    for key, value in tx_data.items():
+        if isinstance(value, HexBytes):
+            tx_data[key] = Web3.toHex(value)
+
     return tx_data

@@ -141,14 +141,13 @@ class AuctionHouse:
     async def submit_tx(self, raw_tx: HexBytes) -> None:
         submitted = time.time()
         tx_data = decode_raw_tx(raw_tx)
-        tx_hash = tx_data["hash"]
+        tx_hash = HexBytes(tx_data["hash"])
 
         if tx_hash in self.txpool:
             raise ValueError("Already in txpool.")
 
         fee = tx_data["maxPriorityFeePerGas"]
         try:
-            # TODO: check if that works
             gas = self.w3.eth.estimate_gas(tx_data)
         except:
             raise ValueError("Invalid transaction.")
@@ -163,7 +162,7 @@ class AuctionHouse:
                 False,
             )
 
-    async def get_txpool(self, pubkey: HexBytes) -> list[TxData]:
+    async def get_txpool(self, pubkey: HexBytes) -> list[dict[str, str]]:
         builder = self._get_builder_by_pubkey(pubkey)
         if not builder.access:
             raise ValueError("Access restricted.")
@@ -173,7 +172,7 @@ class AuctionHouse:
             if tx.sold:
                 continue
             tx_data = copy.copy(tx.data)
-            tx_data["v"], tx_data["r"], tx_data["s"] = 0, HexBytes(""), HexBytes("")
+            tx_data["v"], tx_data["r"], tx_data["s"] = 0, "", ""
             txpool.append(tx_data)
         return txpool
 
