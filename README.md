@@ -196,3 +196,9 @@ Long-term:
 * Design a better payment enforcement mechanism (one idea for permissionless access to the relay is staking ether in a contract; to receive the signatures, bidders would sign permissions to the relay to withdraw the payment amount, and to withdraw their funds they would query the relay for such permission);
 * Try to reduce the trust assumptions on both sides;
 * Rewrite a system in a language that better suits the purpose :D.
+
+## Acknowledgements
+
+All this work is made possible by Army Forces of Ukraine, who're now fighting for our lives and freedom. If you find anything of presented above as prospective and think we should continue doing this, consider donating to one of the following funds
+* [Come Back Alive](https://savelife.in.ua/en/donate-en/)
+* [Serhiy Prytula Charity Foundation](https://prytulafoundation.org/en/home/support_page)
