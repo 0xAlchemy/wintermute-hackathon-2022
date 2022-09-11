@@ -42,16 +42,16 @@ def register_routes(app: Quart, ah: AuctionHouse):
     @app.route("/submitTx", methods=["POST"])
     async def submit_tx():
         """
-        input: {"txRaw": "0xabcdef.."}
+        input: {"rawTx": "0xabcdef.."}
         """
 
         data = await request.get_json()
-        assert("txRaw" in data)
-        tx_raw = HexBytes(data["txRaw"])
+        assert("rawTx" in data)
+        raw_tx = HexBytes(data["rawTx"])
 
-        res = await ah.submit_tx(tx_raw)
+        await ah.submit_tx(raw_tx)
 
-        return res
+        return {}
 
     @app.route("/txPool", methods=["GET"])
     async def get_txpool() -> dict:
@@ -85,8 +85,8 @@ def register_routes(app: Quart, ah: AuctionHouse):
         )
 
         try:
-            res = await ah.submit_bid(pubKey, txHash, value)
-            return res
+            await ah.submit_bid(pubKey, txHash, value)
+            return {}
         except ValueError as e:
             return {"error": str(e)}
 
@@ -97,8 +97,8 @@ def register_routes(app: Quart, ah: AuctionHouse):
         """
 
         data = await request.get_json()
-        assert("pubKey" in data)
-        pubKey = HexBytes(data["pubKey"])
+        assert("pubKey" in data and "slot" in data)
+        pubKey = HexBytes(data["pubKey"], int(data["slot"]))
 
         res = await ah.get_results(pubKey)
 
