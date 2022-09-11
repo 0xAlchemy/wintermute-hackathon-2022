@@ -12,6 +12,9 @@ class AuctionHouse:
 
     async def results(self, pubKey: str) -> dict:
         return {"results": []}
+    
+    async def register(self, pubKey: str) -> dict:
+        return {"status": True}
 
 
 def register_routes(app: Quart, ah: AuctionHouse):
@@ -63,6 +66,20 @@ def register_routes(app: Quart, ah: AuctionHouse):
         pubKey = data["pubKey"]
 
         res = await ah.results(pubKey)
+
+        return res
+
+    @app.route("/register", methods=["POST"])
+    async def register() -> dict:
+        """
+        input: {"pubKey": 0x...}
+        """
+
+        data = await request.get_json()
+        assert("pubKey" in data)
+        pubKey = data["pubKey"]
+
+        res = await ah.register(pubKey)
 
         return res
 
