@@ -51,7 +51,6 @@ class AuctionHouse:
                 await asyncio.sleep(0.1)
                 continue
             slot_number = new_slot
-            print("Slot", slot_number)
 
             await asyncio.sleep(10)
             await self.settle(slot_number)
@@ -87,7 +86,6 @@ class AuctionHouse:
                 await asyncio.sleep(0.1)
                 continue
             block_number = new_block
-            print("Block", block_number)
 
             await self.process_executed()
             await self.process_expired()
@@ -136,7 +134,10 @@ class AuctionHouse:
     async def get_status(self, pubkey: HexBytes) -> dict:
         """Check builder's status."""
         builder = self._get_builder_by_pubkey(pubkey)
-        return {"access": builder.access, "pending_payment": builder.pending_payment}
+        return {
+            "access": builder.access,
+            "pendingPayment": str(builder.pending_payment),
+        }
 
     async def submit_tx(self, raw_tx: HexBytes) -> None:
         submitted = time.time()
@@ -162,7 +163,7 @@ class AuctionHouse:
                 False,
             )
 
-    async def get_txpool(self, pubkey: HexBytes) -> list[dict[str, str]]:
+    async def get_txpool(self, pubkey: HexBytes) -> list[dict]:
         builder = self._get_builder_by_pubkey(pubkey)
         if not builder.access:
             raise ValueError("Access restricted.")
@@ -173,12 +174,15 @@ class AuctionHouse:
                 continue
             tx_data = copy.copy(tx.data)
             tx_data["v"], tx_data["r"], tx_data["s"] = 0, "", ""
-            txpool.append(tx_data)
+            txpool.append({
+                "data": tx_data,
+                "reserve": str(tx.reserve),
+            })
         return txpool
 
     async def submit_bid(
         self, pubkey: HexBytes, tx_hash: HexBytes, value: Wei
-    ) -> None:
+    ) -> dict:
         submitted = time.time()
 
         builder = self._get_builder_by_pubkey(pubkey)
@@ -197,6 +201,11 @@ class AuctionHouse:
                 auction.submit(bid)
             else:
                 self.auctions[tx_hash] = Auction(tx, bid)
+        slot = self._get_current_slot()
+        if slot in self.results or submitted - tx.submitted < MIN_TIME_IN_TX_POOL:
+            return {"slot": str(slot + 1)}
+        else:
+            return {"slot": str(slot)}
 
     async def get_results(self, pubkey: HexBytes, slot: int) -> list[dict]:
         builder = self._get_builder_by_pubkey(pubkey)
@@ -204,7 +213,7 @@ class AuctionHouse:
             raise ValueError("Access restricted.")
 
         if slot not in self.results:
-            raise ValueError(f"No results for slot {slot}")
+            return {"transactions": [], "total_payment": "0"}
 
         total_payment = 0
         txs: list = []
@@ -213,10 +222,10 @@ class AuctionHouse:
                 continue
             total_payment += res.payment
             txs.append({
-                "payment": res.payment,
+                "payment": str(res.payment),
                 "data": tx_data,
             })
-        return {"transactions": txs, "total_payment": total_payment}
+        return {"transactions": txs, "total_payment": str(total_payment)}
 
     # ========= #
     # internals #
