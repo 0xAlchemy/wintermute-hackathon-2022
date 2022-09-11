@@ -20,7 +20,7 @@ class Auction:
     def settle(self) -> Result:
         if len(self.bids) == 1:
             return Result(self.bids[0].builder_pubkey, self.tx.hash, self.tx.reserve)
-        sorted_bids = sorted(self.bids, key=lambda b: (b.value, -b.timestamp), reverse=True)
+        sorted_bids = sorted(self.bids, key=lambda b: (b.value, -b.submitted), reverse=True)
         winning_bid, second_bid = sorted_bids[0], sorted_bids[1]
         return Result(winning_bid.builder_pubkey, self.tx.hash, second_bid.value)
 
