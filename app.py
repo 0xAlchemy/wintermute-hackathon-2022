@@ -1,12 +1,16 @@
 import asyncio
+from enum import Enum
 from threading import Thread
 
 from decouple import config
-from quart import Quart, request
 from hexbytes import HexBytes
+from quart import Quart, request
 from web3 import Web3, HTTPProvider
+from web3.types import Wei
 
 from auction import AuctionHouse
+
+HTTP_ERROR = 500
 
 
 def register_routes(app: Quart, ah: AuctionHouse):
@@ -21,11 +25,13 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("pubKey" in data)
         pubKey = HexBytes(data["pubKey"])
 
-        await ah.register(pubKey)
+        try:
+            await ah.register(pubKey)
+            return {"result": ""}
+        except Exception as e:
+            return str(e), HTTP_ERROR
 
-        return {}
-
-    @app.route("/getStatus", methods=["GET"])
+    @app.route("/status", methods=["GET"])
     async def get_status() -> dict:
         """
         input: {"pubKey": 0x...}
@@ -35,9 +41,12 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("pubKey" in data)
         pubKey = HexBytes(data["pubKey"])
 
-        res = await ah.get_status(pubKey)
+        try:
+            res = await ah.get_status(pubKey)
+            return {"result": res}
+        except Exception as e:
+            return str(e), HTTP_ERROR
 
-        return res
 
     @app.route("/submitTx", methods=["POST"])
     async def submit_tx():
@@ -49,9 +58,11 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("rawTx" in data)
         raw_tx = HexBytes(data["rawTx"])
 
-        await ah.submit_tx(raw_tx)
-
-        return {}
+        try:
+            await ah.submit_tx(raw_tx)
+            return {"result": ""}
+        except Exception as e:
+            return str(e), HTTP_ERROR
 
     @app.route("/txPool", methods=["GET"])
     async def get_txpool() -> dict:
@@ -63,9 +74,11 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("pubKey" in data)
         pubKey = HexBytes(data["pubKey"])
 
-        res = await ah.get_txpool(pubKey)
-
-        return res
+        try:
+            res = await ah.get_txpool(pubKey)
+            return {"result": res}
+        except Exception as e:
+            return str(e), HTTP_ERROR
 
     @app.route("/submitBid", methods=["POST"])
     async def submit_bid() -> dict:
@@ -81,14 +94,14 @@ def register_routes(app: Quart, ah: AuctionHouse):
             and "value" in data
         )
         pubKey, txHash, value = (
-            HexBytes(data["pubKey"]), HexBytes(data["txHash"]), int(data["value"])
+            HexBytes(data["pubKey"]), HexBytes(data["txHash"]), Wei(int(data["value"]))
         )
 
         try:
             await ah.submit_bid(pubKey, txHash, value)
-            return {}
+            return {"result": ""}
         except ValueError as e:
-            return {"error": str(e)}
+            return str(e), HTTP_ERROR
 
     @app.route("/results", methods=["GET"])
     async def get_results() -> dict:
@@ -103,8 +116,11 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         res = await ah.get_results(pubKey, slot)
 
-        return res
-
+        try:
+            res = await ah.get_results(pubKey, slot)
+            return {"result": res}
+        except Exception as e:
+            return str(e), HTTP_ERROR
 
 
 class AuctionThread(Thread):
