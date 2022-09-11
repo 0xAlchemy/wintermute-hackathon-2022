@@ -12,6 +12,7 @@ from .auction import Auction
 from .types import Bid, Builder, Result, Transaction
 from .utils import encode_tx_data, decode_raw_tx
 
+GENESIS_TIME = 1606824023
 MIN_TIME_IN_TX_POOL = 1
 MAX_SLOTS_IN_TX_POOL = 10
 
@@ -31,9 +32,8 @@ class AuctionHouse:
 
     results: dict[int, list[tuple[Result, TxData]]]
 
-    def __init__(self, w3: Web3, beacon_genesis: int) -> None:
+    def __init__(self, w3: Web3) -> None:
         self.w3 = w3
-        self.beacon_genesis = beacon_genesis
 
         self.builders = {}
         self.txpool = {}
@@ -48,10 +48,12 @@ class AuctionHouse:
         slot_number = 0
         while True:
             if (new_slot := self._get_current_slot()) <= slot_number:
-                asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
+                continue
             slot_number = new_slot
+            print("Slot", slot_number)
 
-            asyncio.sleep(10)
+            await asyncio.sleep(10)
             await self.settle(slot_number)
 
     async def settle(self, slot_number: int) -> None:
@@ -59,7 +61,7 @@ class AuctionHouse:
 
         results = []
         postponed_auctions: dict[HexBytes, Auction] = {}
-        with self.auction_lock, self.builder_lock, self.txpool_lock:
+        async with self.auction_lock, self.builder_lock, self.txpool_lock:
             for tx_hash, auction in self.auctions.items():
                 tx = self._get_tx_by_hash(tx_hash)
                 if tx.submitted >= started - MIN_TIME_IN_TX_POOL:
@@ -81,9 +83,11 @@ class AuctionHouse:
     async def run_cleanup(self) -> NoReturn:
         block_number = 0
         while True:
-            if (new_block := await self.w3.eth.block_number) <= block_number:
-                asyncio.sleep(0.1)
+            if (new_block := self.w3.eth.block_number) <= block_number:
+                await asyncio.sleep(0.1)
+                continue
             block_number = new_block
+            print("Block", block_number)
 
             await self.process_executed()
             await self.process_expired()
@@ -93,11 +97,11 @@ class AuctionHouse:
         executed_txs = []
         for tx_hash in self.txpool:
             try:
-                await self.w3.eth.get_transaction_receipt(tx_hash)
+                self.w3.eth.get_transaction_receipt(tx_hash)
                 executed_txs.append(tx_hash)
             except TransactionNotFound:
                 pass
-        with self.txpool_lock, self.auction_lock:
+        async with self.txpool_lock, self.auction_lock:
             for tx_hash in executed_txs:
                 del self.txpool[tx_hash]
                 if tx_hash in self.auctions:
@@ -109,9 +113,9 @@ class AuctionHouse:
         expired_txs = []
         for tx_hash, tx in self.txpool.items():
             if (now - tx.submitted) // 12 > MAX_SLOTS_IN_TX_POOL:
-                await self.w3.eth.send_raw_transaction(encode_tx_data(tx.data))
+                self.w3.eth.send_raw_transaction(encode_tx_data(tx.data))
                 expired_txs.append(tx_hash)
-        with self.txpool_lock, self.auction_lock:
+        async with self.txpool_lock, self.auction_lock:
             for tx_hash in expired_txs:
                 del self.txpool[tx_hash]
                 if tx_hash in self.auctions:
@@ -125,7 +129,7 @@ class AuctionHouse:
         """Register the builder in the system."""
         if pubkey in self.builders:
             raise ValueError("Already registered.")
-        with self.builder_lock:
+        async with self.builder_lock:
             # TODO: validate if pubkey is registered in flashbots boost relay
             self.builders[pubkey] = Builder(pubkey, True, 0)
 
@@ -149,7 +153,7 @@ class AuctionHouse:
         except:
             raise ValueError("Invalid transaction.")
 
-        with self.txpool_lock:
+        async with self.txpool_lock:
             self.txpool[tx_hash] = Transaction(
                 tx_hash,
                 tx_data,
@@ -189,7 +193,7 @@ class AuctionHouse:
             raise ValueError("Reserve price not met.")
 
         bid = Bid(pubkey, tx_hash, value, submitted)
-        with self.auction_lock:
+        async with self.auction_lock:
             if (auction := self.auctions.get(tx_hash)):
                 auction.submit(bid)
             else:
@@ -220,7 +224,7 @@ class AuctionHouse:
     # ========= #
 
     def _get_current_slot(self) -> int:
-        return int((time.time() - self.beacon_genesis) // 12)
+        return int((time.time() - GENESIS_TIME) // 12)
 
     def _get_builder_by_pubkey(self, pubkey: HexBytes) -> Builder:
         if not (builder := self.builders.get(pubkey)):

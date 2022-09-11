@@ -1,32 +1,18 @@
+import asyncio
+from threading import Thread
+
+from decouple import config
 from quart import Quart, request
 from hexbytes import HexBytes
+from web3 import Web3, HTTPProvider
 
-class AuctionHouse:
-    def __init__(self) -> None:
-        pass
-
-    async def get_tx_pool(self, pubKey: HexBytes) -> dict:
-        return {"txPool": []}
-
-    async def submit_bid(self, pubKey: HexBytes, txHash: HexBytes, value: int) -> dict:
-        return {"status": True}
-
-    async def results(self, pubKey: HexBytes) -> dict:
-        return {"results": []}
-    
-    async def register(self, pubKey: HexBytes) -> dict:
-        return {"status": True}
-    
-    async def get_status(self, pubkey: HexBytes) -> dict:
-        return {"status": True}
-    
-    async def submit_tx(self, tx_raw: HexBytes) -> dict:
-        return {"status": True}
+from auction import AuctionHouse
 
 
 def register_routes(app: Quart, ah: AuctionHouse):
-    @app.route("/txPool", methods=["GET"])
-    async def get_tx_pool() -> dict:
+
+    @app.route("/register", methods=["POST"])
+    async def register() -> dict:
         """
         input: {"pubKey": 0x...}
         """
@@ -35,10 +21,51 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("pubKey" in data)
         pubKey = HexBytes(data["pubKey"])
 
-        res = await ah.get_tx_pool(pubKey)
+        await ah.register(pubKey)
+
+        return {}
+
+    @app.route("/getStatus", methods=["GET"])
+    async def get_status() -> dict:
+        """
+        input: {"pubKey": 0x...}
+        """
+
+        data = await request.get_json()
+        assert("pubKey" in data)
+        pubKey = HexBytes(data["pubKey"])
+
+        res = await ah.get_status(pubKey)
 
         return res
 
+    @app.route("/submitTx", methods=["POST"])
+    async def submit_tx():
+        """
+        input: {"txRaw": "0xabcdef.."}
+        """
+
+        data = await request.get_json()
+        assert("txRaw" in data)
+        tx_raw = HexBytes(data["txRaw"])
+
+        res = await ah.submit_tx(tx_raw)
+
+        return res
+
+    @app.route("/txPool", methods=["GET"])
+    async def get_txpool() -> dict:
+        """
+        input: {"pubKey": 0x...}
+        """
+
+        data = await request.get_json()
+        assert("pubKey" in data)
+        pubKey = HexBytes(data["pubKey"])
+
+        res = await ah.get_txpool(pubKey)
+
+        return res
 
     @app.route("/submitBid", methods=["POST"])
     async def submit_bid() -> dict:
@@ -63,9 +90,8 @@ def register_routes(app: Quart, ah: AuctionHouse):
         except ValueError as e:
             return {"error": str(e)}
 
-
     @app.route("/results", methods=["GET"])
-    async def results() -> dict:
+    async def get_results() -> dict:
         """
         input: {"pubKey": 0x...}
         """
@@ -74,56 +100,44 @@ def register_routes(app: Quart, ah: AuctionHouse):
         assert("pubKey" in data)
         pubKey = HexBytes(data["pubKey"])
 
-        res = await ah.results(pubKey)
+        res = await ah.get_results(pubKey)
 
         return res
 
-    @app.route("/register", methods=["POST"])
-    async def register() -> dict:
-        """
-        input: {"pubKey": 0x...}
-        """
 
-        data = await request.get_json()
-        assert("pubKey" in data)
-        pubKey = HexBytes(data["pubKey"])
 
-        res = await ah.register(pubKey)
+class AuctionThread(Thread):
+    ah: AuctionHouse
 
-        return res
+    def __init__(self, ah: AuctionHouse) -> None:
+        super().__init__()
+        self.ah = ah
     
-    @app.route("/submitTx", methods=["POST"])
-    async def submit_tx():
-        """
-        input: {"txRaw": "0xabcdef.."}
-        """
+    def run(self):
+        asyncio.run(self.ah.run_auction())
 
-        data = await request.get_json()
-        assert("txRaw" in data)
-        tx_raw = HexBytes(data["txRaw"])
 
-        res = await ah.submit_tx(tx_raw)
+class CleanupThread(Thread):
+    ah: AuctionHouse
 
-        return res
-
-    @app.route("/getStatus", methods=["GET"])
-    async def get_status() -> dict:
-        """
-        input: {"pubKey": 0x...}
-        """
-
-        data = await request.get_json()
-        assert("pubKey" in data)
-        pubKey = HexBytes(data["pubKey"])
-
-        res = await ah.get_status(pubKey)
-
-        return res
+    def __init__(self, ah: AuctionHouse) -> None:
+        super().__init__()
+        self.ah = ah
+    
+    def run(self):
+        asyncio.run(self.ah.run_cleanup())
 
 
 if __name__ == "__main__":
-    app = Quart(__name__)
-    ah = AuctionHouse()
+    w3 = Web3(HTTPProvider(config("PROVIDER")))
+    ah = AuctionHouse(w3)
 
+    at = AuctionThread(ah)
+    ct = CleanupThread(ah)
+
+    at.start()
+    ct.start()
+
+    app = Quart(__name__)
     register_routes(app, ah)
     app.run()
