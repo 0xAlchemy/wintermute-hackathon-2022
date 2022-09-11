@@ -27,7 +27,7 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         try:
             await ah.register(pubKey)
-            return {"result": ""}
+            return ""
         except Exception as e:
             return str(e), HTTP_ERROR
 
@@ -43,7 +43,7 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         try:
             res = await ah.get_status(pubKey)
-            return {"result": res}
+            return res
         except Exception as e:
             return str(e), HTTP_ERROR
 
@@ -60,7 +60,7 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         try:
             await ah.submit_tx(raw_tx)
-            return {"result": ""}
+            return ""
         except Exception as e:
             return str(e), HTTP_ERROR
 
@@ -76,7 +76,7 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         try:
             res = await ah.get_txpool(pubKey)
-            return {"result": res}
+            return res
         except Exception as e:
             return str(e), HTTP_ERROR
 
@@ -98,8 +98,8 @@ def register_routes(app: Quart, ah: AuctionHouse):
         )
 
         try:
-            await ah.submit_bid(pubKey, txHash, value)
-            return {"result": ""}
+            res = await ah.submit_bid(pubKey, txHash, value)
+            return res
         except ValueError as e:
             return str(e), HTTP_ERROR
 
@@ -118,7 +118,7 @@ def register_routes(app: Quart, ah: AuctionHouse):
 
         try:
             res = await ah.get_results(pubKey, slot)
-            return {"result": res}
+            return res
         except Exception as e:
             return str(e), HTTP_ERROR
 
